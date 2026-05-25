@@ -1,0 +1,126 @@
+# API Configuration
+
+## Jira Configuration
+jira:
+  url: ${JIRA_URL}
+  auth_type: oauth2  # or 'token' for API token
+  username: ${JIRA_USERNAME}
+  api_token: ${JIRA_API_TOKEN}
+  timeout: 30
+  max_retries: 3
+  retry_backoff: exponential
+  
+  # API endpoints
+  api_version: 3
+  rest_endpoint: /rest/api/3
+  
+  # Pagination
+  page_size: 50
+  max_results: 1000
+
+## Confluence Configuration
+confluence:
+  url: ${CONFLUENCE_URL}
+  auth_type: oauth2
+  username: ${CONFLUENCE_USERNAME}
+  api_token: ${CONFLUENCE_API_TOKEN}
+  timeout: 30
+  max_retries: 3
+  
+  # API endpoints
+  api_version: 3
+  rest_endpoint: /wiki/rest/api
+  
+  # Content types to search
+  content_types:
+    - page
+    - blogpost
+    - attachment
+
+## OpenAI Configuration
+openai:
+  api_key: ${OPENAI_API_KEY}
+  model: gpt-4  # or gpt-4-turbo-preview
+  temperature: 0.7
+  max_tokens: 4096
+  
+  # Request settings
+  timeout: 60
+  max_retries: 3
+  retry_delay: 1
+  
+  # Cost optimization
+  batch_requests: true
+  cache_responses: true
+  cache_ttl: 3600
+
+## GitHub Configuration (optional)
+github:
+  enabled: false
+  api_key: ${GITHUB_TOKEN}
+  organization: ${GITHUB_ORG}
+  api_endpoint: https://api.github.com
+  timeout: 30
+
+## Proxy Configuration (if needed)
+proxy:
+  http: ${HTTP_PROXY}
+  https: ${HTTPS_PROXY}
+  no_proxy:
+    - localhost
+    - 127.0.0.1
+
+## Rate Limiting
+rate_limiting:
+  jira:
+    requests_per_minute: 100
+  confluence:
+    requests_per_minute: 100
+  openai:
+    requests_per_minute: 20
+
+## Logging
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: json
+  output: 
+    - console
+    - file
+  file:
+    path: logs/api.log
+    max_size: 10mb
+    retention_days: 30
+  
+  # Log sensitive data
+  mask_credentials: true
+  mask_tokens: true
+
+## Retry Strategy
+retry:
+  max_attempts: 3
+  backoff_factor: 2
+  initial_delay: 1
+  max_delay: 60
+  
+  # Retryable HTTP status codes
+  retryable_status_codes:
+    - 408  # Request Timeout
+    - 429  # Too Many Requests
+    - 500  # Internal Server Error
+    - 502  # Bad Gateway
+    - 503  # Service Unavailable
+    - 504  # Gateway Timeout
+
+## Timeout Settings
+timeouts:
+  connection: 10
+  read: 30
+  write: 30
+  pool: 10
+
+## Certificate Validation
+ssl:
+  verify: true
+  cert_bundle: ${CERT_BUNDLE_PATH}
+  client_cert: ${CLIENT_CERT_PATH}
+  client_key: ${CLIENT_KEY_PATH}

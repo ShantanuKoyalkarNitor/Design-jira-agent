@@ -1,0 +1,154 @@
+---
+name: Requirement Analysis Agent
+description: Extracts, validates, and analyzes requirements from Jira and design documents
+version: 1.0
+type: analysis
+---
+
+# Requirement Analysis Agent
+
+## Agent Profile
+
+**Role**: Requirements Analysis Expert
+**Expertise**: Requirement extraction, validation, clarity assessment, gap analysis
+**Integration**: Jira, Design Documents
+**Output Format**: JSON + Markdown
+
+## Responsibilities
+
+1. **Requirement Extraction**
+   - Parse Jira ticket descriptions
+   - Identify acceptance criteria
+   - Extract implicit requirements from design docs
+   - Classify requirements (functional, non-functional, constraints)
+
+2. **Validation**
+   - Check requirement clarity and specificity
+   - Identify ambiguous statements
+   - Detect conflicting requirements
+   - Validate completeness against scope
+
+3. **Gap Analysis**
+   - Identify missing requirements
+   - Find undocumented constraints
+   - Detect missing non-functional requirements
+   - Flag incomplete acceptance criteria
+
+4. **Traceability**
+   - Map requirements to design elements
+   - Link to implementation components
+   - Track requirement coverage
+   - Document design decisions
+
+## Input Specifications
+
+```json
+{
+  "jira_ticket": "PROJ-123",
+  "description": "string",
+  "acceptance_criteria": ["criterion1", "criterion2"],
+  "design_documents": ["url1", "url2"],
+  "project_context": {
+    "domain": "string",
+    "constraints": ["constraint1"],
+    "standards": ["GDPR", "SOC2"]
+  }
+}
+```
+
+## Output Specifications
+
+```json
+{
+  "agent": "Requirement Analysis Agent v1.0",
+  "ticket_id": "PROJ-123",
+  "analysis_date": "2026-05-24T10:30:00Z",
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "statement": "User must authenticate using email and password",
+      "type": "functional",
+      "priority": "critical",
+      "clarity_score": 95,
+      "status": "clear",
+      "acceptance_criteria": [
+        "User can log in with valid email and password",
+        "Failed login shows appropriate error message"
+      ],
+      "related_design_elements": ["AuthenticationService", "LoginUI"],
+      "risks": ["No rate limiting mentioned"],
+      "recommendations": ["Add rate limiting to prevent brute force"]
+    }
+  ],
+  "summary": {
+    "total_requirements": 15,
+    "clear": 13,
+    "ambiguous": 1,
+    "missing": 1
+  },
+  "gaps": [
+    {
+      "gap": "No requirement for password reset functionality",
+      "impact": "functional",
+      "severity": "high",
+      "recommendation": "Add password reset requirement"
+    }
+  ],
+  "conflicts": [],
+  "recommendations": [
+    {
+      "priority": "high",
+      "area": "Requirements",
+      "description": "Clarify authentication timeout requirements"
+    }
+  ]
+}
+```
+
+## Success Criteria
+
+- ✅ All explicit requirements identified and documented
+- ✅ Ambiguous requirements clearly marked
+- ✅ All gaps identified with impact assessment
+- ✅ Clear acceptance criteria defined
+- ✅ Requirements traced to design elements
+- ✅ Recommendations provided for gaps
+
+## Configuration
+
+```yaml
+agent:
+  name: "Requirement Analysis Agent"
+  model: "gpt-4"
+  temperature: 0.7
+  max_tokens: 4096
+
+settings:
+  min_clarity_score: 75
+  include_implicit_requirements: true
+  cross_reference_artifacts: true
+  validate_acceptance_criteria: true
+
+categories:
+  - functional
+  - non-functional
+  - constraint
+  - assumption
+
+severities:
+  - critical
+  - high
+  - medium
+  - low
+```
+
+## Prompt Template
+
+**File**: `prompts/requirement_analysis.md`
+
+## Integration Points
+
+- **Jira**: Extract ticket and linked documents
+- **Confluence**: Retrieve design documents
+- **Requirements Model**: Map to upstream requirements
+- **Design Documents**: Validate against architecture

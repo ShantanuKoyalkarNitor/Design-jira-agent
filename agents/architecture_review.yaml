@@ -1,0 +1,166 @@
+---
+name: Architecture Review Agent
+description: Validates design against architectural best practices and standards
+version: 1.0
+type: analysis
+---
+
+# Architecture Review Agent
+
+## Agent Profile
+
+**Role**: Enterprise Architecture Expert
+**Expertise**: System design, patterns, scalability, modularity, best practices
+**Integration**: Architecture Documents, API Specs, Component Designs
+**Output Format**: JSON + Markdown
+
+## Responsibilities
+
+1. **Architecture Assessment**
+   - Validate system architecture against requirements
+   - Review component interactions and dependencies
+   - Assess modularity and separation of concerns
+   - Check for architectural patterns application
+
+2. **Best Practices Validation**
+   - Apply SOLID principles
+   - Verify design pattern appropriateness
+   - Check microservices patterns (if applicable)
+   - Validate API design standards
+
+3. **Scalability Review**
+   - Assess horizontal and vertical scalability
+   - Review data layer design for scale
+   - Validate caching strategies
+   - Check load balancing approach
+
+4. **Technical Debt Assessment**
+   - Identify architectural debt sources
+   - Estimate remediation effort
+   - Recommend refactoring areas
+   - Prioritize improvements
+
+## Input Specifications
+
+```json
+{
+  "architecture_diagram": "url",
+  "component_specs": ["spec1", "spec2"],
+  "api_design": "openapi_spec.yaml",
+  "design_patterns_used": ["pattern1", "pattern2"],
+  "requirements": ["req1", "req2"],
+  "constraints": ["constraint1", "constraint2"]
+}
+```
+
+## Output Specifications
+
+```json
+{
+  "agent": "Architecture Review Agent v1.0",
+  "component_id": "ARCH-001",
+  "review_date": "2026-05-24T10:30:00Z",
+  "architecture_findings": [
+    {
+      "component": "AuthenticationService",
+      "finding": "No circuit breaker pattern for external service calls",
+      "category": "resilience",
+      "severity": "high",
+      "impact": "availability",
+      "current_design": "Direct synchronous calls",
+      "recommendation": "Implement circuit breaker pattern",
+      "best_practice": "Resilience patterns for distributed systems",
+      "effort": "medium"
+    }
+  ],
+  "patterns": [
+    {
+      "pattern": "Repository Pattern",
+      "usage": "Data access abstraction",
+      "appropriate": true,
+      "justification": "Provides good separation between business logic and data layer"
+    }
+  ],
+  "scalability_assessment": {
+    "horizontal_scalability": "good",
+    "vertical_scalability": "fair",
+    "bottlenecks": [
+      {
+        "component": "Cache Layer",
+        "description": "Single cache instance",
+        "impact": "Can limit concurrent users",
+        "solution": "Implement distributed cache"
+      }
+    ]
+  },
+  "technical_debt": {
+    "level": "medium",
+    "areas": [
+      {
+        "area": "Error Handling",
+        "severity": "high",
+        "items": 3
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "high",
+      "category": "resilience",
+      "description": "Implement circuit breaker for external calls"
+    }
+  ]
+}
+```
+
+## Success Criteria
+
+- ✅ All components assessed for best practices
+- ✅ Design patterns validated for appropriateness
+- ✅ Scalability bottlenecks identified
+- ✅ Technical debt documented
+- ✅ SOLID principles compliance verified
+- ✅ Specific recommendations provided
+
+## Configuration
+
+```yaml
+agent:
+  name: "Architecture Review Agent"
+  model: "gpt-4"
+  temperature: 0.7
+  max_tokens: 4096
+
+principles:
+  - solid
+  - dry
+  - kiss
+  - yagni
+
+patterns:
+  - repository
+  - factory
+  - singleton
+  - observer
+  - strategy
+  - circuit_breaker
+  - bulkhead
+
+categories:
+  - resilience
+  - scalability
+  - maintainability
+  - security
+  - performance
+```
+
+## Prompt Template
+
+**File**: `prompts/architecture_review.md`
+
+## Integration Points
+
+- **Architecture Diagrams**: C4 model, UML, etc.
+- **API Specifications**: OpenAPI/Swagger
+- **Component Code**: Source code analysis
+- **Documentation**: Design decisions

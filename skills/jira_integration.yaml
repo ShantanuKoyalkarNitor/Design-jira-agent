@@ -1,0 +1,104 @@
+---
+name: Jira Integration Skill
+description: Extract requirements and artifacts from Jira
+version: 1.0
+type: integration
+---
+
+# Jira Integration Skill
+
+## Purpose
+Seamlessly extract tickets, requirements, and linked artifacts from Jira for design review analysis.
+
+## Capabilities
+
+### 1. Ticket Extraction
+- Fetch ticket details by ID
+- Extract description and acceptance criteria
+- Retrieve custom fields
+- Get ticket status and metadata
+- List related tickets
+
+### 2. Artifact Discovery
+- Find linked design documents
+- Locate architecture diagrams
+- Discover API specifications
+- Identify test plans and cases
+- Retrieve attachment links
+
+### 3. Project Context
+- Get project configuration
+- Retrieve team members
+- Extract project standards
+- Identify compliance requirements
+- Get project constraints
+
+## API Endpoints
+
+```
+GET /rest/api/3/issues/{issueIdOrKey}
+  - Get full ticket details
+  
+GET /rest/api/3/issues/{issueIdOrKey}/changelog
+  - Get ticket history
+  
+GET /rest/api/3/issues/{issueIdOrKey}/links
+  - Get linked issues
+  
+GET /rest/api/3/projects/{projectKey}
+  - Get project details
+  
+GET /rest/api/3/search
+  - Search for tickets by JQL
+```
+
+## Usage Example
+
+```python
+from src.jira_connector import JiraConnector
+
+jira = JiraConnector(url, username, token)
+
+# Get ticket
+ticket = jira.get_ticket("PROJ-123")
+
+# Get linked artifacts
+artifacts = jira.get_linked_artifacts("PROJ-123")
+
+# Search for design documents
+design_issues = jira.search('project = PROJ AND type = "Design Document"')
+```
+
+## Authentication
+
+- **Type**: OAuth2 or API Token
+- **Header**: Authorization: Bearer {token}
+- **Config**: Environment variables or config file
+
+## Error Handling
+
+- Retry on rate limiting (429)
+- Handle authentication errors (401)
+- Manage timeout errors gracefully
+- Log all API calls for audit
+
+## Configuration
+
+```yaml
+jira:
+  url: ${JIRA_URL}
+  auth_type: oauth2|token
+  username: ${JIRA_USERNAME}
+  api_token: ${JIRA_API_TOKEN}
+  timeout: 30
+  max_retries: 3
+```
+
+## Output
+
+Returns structured data:
+- Ticket ID, title, description
+- Status, priority, assignee
+- Acceptance criteria
+- Linked documents and links
+- Custom fields and metadata

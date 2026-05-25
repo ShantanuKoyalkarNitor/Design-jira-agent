@@ -1,0 +1,118 @@
+---
+name: Artifact Discovery Skill
+description: Discover and parse design artifacts (documents, diagrams, APIs)
+version: 1.0
+type: utility
+---
+
+# Artifact Discovery Skill
+
+## Purpose
+Locate, retrieve, and parse design artifacts including documents, diagrams, and specifications.
+
+## Capabilities
+
+### 1. Document Discovery
+- Find design documents in Confluence
+- Locate architecture documents
+- Discover API specifications
+- Find requirement documents
+- Identify design decision records (ADRs)
+
+### 2. Content Parsing
+- Parse Markdown documents
+- Extract from Confluence pages
+- Parse OpenAPI/Swagger specs
+- Extract from Miro/Lucidchart diagrams
+- Process PlantUML diagrams
+
+### 3. Link Resolution
+- Follow document links
+- Resolve relative paths
+- Handle URL redirects
+- Cache document content
+- Track document versions
+
+## Supported Formats
+
+- **Documents**: Markdown, HTML, PDF, Word
+- **Specifications**: OpenAPI 3.0, Swagger 2.0, AsyncAPI
+- **Diagrams**: PlantUML, Mermaid, Lucidchart, Miro
+- **Architecture**: C4 Model diagrams, UML
+
+## API Integration
+
+### Confluence Integration
+```
+GET /rest/api/3/pages/{id}
+GET /rest/api/3/pages/{id}/body
+GET /rest/api/3/pages?limit=25&status=current
+```
+
+### GitHub Integration
+```
+GET /repos/{owner}/{repo}/contents/{path}
+GET /repos/{owner}/{repo}/commits?path={path}
+```
+
+## Usage Example
+
+```python
+from src.artifact_discovery import ArtifactFinder
+
+finder = ArtifactFinder()
+
+# Discover artifacts
+artifacts = finder.discover_from_jira_ticket("PROJ-123")
+
+# Parse specific artifact
+spec = finder.parse_openapi("path/to/openapi.yaml")
+
+# Get document content
+doc = finder.get_confluence_page("space-key", "page-id")
+```
+
+## Content Processing
+
+- Extract text from PDFs
+- Parse YAML/JSON specs
+- Generate markdown from diagrams
+- Normalize formatting
+- Handle encoding issues
+
+## Caching
+
+- Cache retrieved documents
+- Track document versions
+- Invalidate cache on updates
+- Support offline mode
+
+## Error Handling
+
+- Handle missing documents
+- Manage access restrictions
+- Parse incomplete artifacts
+- Log parsing errors
+
+## Configuration
+
+```yaml
+artifact_discovery:
+  confluence:
+    enabled: true
+    cache_ttl: 3600
+  github:
+    enabled: true
+    branch: main
+  local:
+    enabled: true
+    base_path: ./docs
+```
+
+## Output
+
+Returns:
+- Artifact metadata (type, source, date)
+- Parsed content (text, structured data)
+- Document references and links
+- Change history (if available)

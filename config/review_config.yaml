@@ -1,0 +1,244 @@
+# Review Configuration
+
+## Agent Configuration
+agents:
+  requirement_analysis:
+    enabled: true
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 60
+  
+  architecture_review:
+    enabled: true
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 60
+  
+  security_review:
+    enabled: true
+    model: gpt-4
+    temperature: 0.5  # Lower temp for consistency
+    max_tokens: 4096
+    timeout: 60
+  
+  scalability_review:
+    enabled: true
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 60
+
+## Review Rules and Criteria
+review_criteria:
+  
+  # Severity thresholds
+  severity_thresholds:
+    critical: ">= 85"
+    high: "65-84"
+    medium: "45-64"
+    low: "0-44"
+  
+  # Minimum requirements
+  minimum_requirements:
+    requirement_count: 5
+    acceptance_criteria_per_requirement: 2
+    clarity_score: 75
+  
+  # Severity filters
+  severity_filter:
+    minimum_report_severity: "low"  # Only report this severity and above
+    critical_blocker: true  # Block approval if critical findings
+  
+  # Review completeness
+  required_agents:
+    - requirement_analysis
+    - architecture_review
+    - security_review
+    - scalability_review
+
+## Artifact Requirements
+artifacts:
+  required:
+    - design_document
+    - api_specification
+  
+  optional:
+    - architecture_diagram
+    - data_flow_diagram
+    - deployment_diagram
+  
+  artifact_types:
+    - openapi
+    - swagger
+    - markdown
+    - confluence_page
+    - github_readme
+    - drawio_diagram
+    - plantuml_diagram
+
+## Compliance Standards
+compliance:
+  required_standards:
+    - gdpr
+    - soc2
+  
+  optional_standards:
+    - hipaa
+    - pci_dss
+    - iso27001
+
+## Report Configuration
+report:
+  format: markdown  # markdown, html, pdf, json
+  include_sections:
+    - executive_summary: true
+    - requirements_analysis: true
+    - architecture_review: true
+    - security_review: true
+    - scalability_assessment: true
+    - risk_matrix: true
+    - recommendations: true
+    - audit_trail: true
+  
+  # Report options
+  include_audit_trail: true
+  include_evidence: true
+  max_recommendations: 20
+  include_metrics: true
+  
+  # Summary options
+  executive_summary:
+    max_length: 500  # words
+    highlight_critical: true
+    include_timeline: true
+  
+  # Recommendation grouping
+  group_by: severity  # or category, effort, timeline
+  sort_by: priority  # or severity, effort, impact
+
+## Severity Classification
+severity:
+  critical:
+    description: "Must fix before deployment"
+    approval_required: "CTO/Security Lead"
+    timeline: "immediate"
+  
+  high:
+    description: "Should fix soon"
+    approval_required: "Engineering Lead"
+    timeline: "short_term"
+  
+  medium:
+    description: "Address in next iteration"
+    approval_required: "Team Lead"
+    timeline: "medium_term"
+  
+  low:
+    description: "Nice to have improvement"
+    approval_required: "None"
+    timeline: "long_term"
+
+## Timeline Assignments
+timelines:
+  immediate: 
+    days: 0-7
+    sprints: 0-1
+  short_term:
+    days: 7-30
+    sprints: 1-2
+  medium_term:
+    days: 30-90
+    sprints: 2-4
+  long_term:
+    days: "90+"
+    sprints: "4+"
+
+## Approval Process
+approval:
+  require_human_review: true
+  auto_approve_low_severity: false
+  approval_roles:
+    - role: "Architect"
+      for_categories: ["architecture", "scalability"]
+    - role: "Security Lead"
+      for_categories: ["security"]
+    - role: "Tech Lead"
+      for_categories: ["all"]
+
+## Integration Settings
+integration:
+  update_jira_ticket: true
+  link_report_to_ticket: true
+  create_subtasks: false
+  subtask_for_critical: true
+  
+  git_integration:
+    enabled: true
+    commit_report: true
+    branch: design-review/{ticket_id}
+  
+  notifications:
+    enabled: true
+    on_complete: true
+    on_critical: true
+    recipients: ["team@company.com"]
+
+## Output Configuration
+output:
+  report_directory: "./reports"
+  include_timestamp: true
+  organize_by_ticket: true
+  naming_convention: "{ticket_id}-design-review"
+  
+  # Export formats
+  formats:
+    markdown: true
+    html: true
+    pdf: false
+    json: true
+  
+  # Archive old reports
+  archive_old_reports: true
+  archive_days: 90
+
+## Logging and Audit
+logging:
+  level: INFO
+  audit_trail: true
+  log_all_findings: true
+  log_agent_decisions: true
+  
+  file_logging:
+    enabled: true
+    path: "./logs"
+    rotation: daily
+    retention_days: 90
+
+## Performance
+performance:
+  parallel_agent_execution: true
+  cache_agent_responses: true
+  cache_ttl: 3600
+  batch_processing: true
+  
+  # Timeouts
+  agent_timeout: 60  # seconds
+  total_review_timeout: 600  # seconds
+
+## Customization
+custom_rules:
+  enabled: false
+  rules_file: "./config/custom_rules.yaml"
+  
+domain_specific_criteria:
+  enabled: false
+  domain: ""  # e.g., "fintech", "healthcare"
+
+## Debug Mode
+debug:
+  enabled: false
+  verbose_logging: false
+  save_raw_responses: false
+  skip_agent_execution: false
