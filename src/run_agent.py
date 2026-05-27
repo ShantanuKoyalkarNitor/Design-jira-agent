@@ -30,6 +30,7 @@ class AgentRunner:
         """
         self.agent_name = agent_name
         self.agent_config = self._load_agent_config(agent_name)
+        self.prompt_template = self._load_prompt_template(agent_name)
         
         # Create LLM instance - use provided provider or from config or default
         provider = llm_provider or self.agent_config.get('llm', {}).get('provider') or os.getenv("LLM_PROVIDER", "offline")
@@ -75,6 +76,39 @@ class AgentRunner:
             
             config = yaml.safe_load(yaml_content) or {}
             return config
+
+    def _load_prompt_template(self, agent_name: str) -> str:
+        """Load the markdown prompt template for an agent."""
+        prompt_map = {
+            'requirement_analysis': 'requirement_analysis.md',
+            'design_document_review': 'design_document_review.md',
+            'design_security_review': 'design_security_review.md',
+            'design_scalability_review': 'design_scalability_review.md',
+        }
+
+        prompt_file = prompt_map.get(agent_name)
+        if not prompt_file:
+            return ""
+
+        prompt_path = Path(__file__).parent.parent / "prompts" / prompt_file
+        if not prompt_path.exists():
+            return ""
+
+        return prompt_path.read_text(encoding="utf-8").strip()
+
+    def _compose_prompt(self, context_title: str, context_body: str) -> str:
+        """Combine the markdown prompt template with live Jira content."""
+        sections = []
+        if self.prompt_template:
+            sections.append(self.prompt_template)
+        sections.extend([
+            "",
+            f"## {context_title}",
+            context_body.strip(),
+            "",
+            "Important: Return ONLY valid JSON. Do not add markdown fences or commentary.",
+        ])
+        return "\n".join(sections).strip()
     
     def get_requirements(self, ticket_id: str) -> Dict[str, Any]:
         """
@@ -266,133 +300,55 @@ class AgentRunner:
         """Build prompt for requirement analysis"""
         
         criteria_text = '\n'.join(f"- {c}" for c in requirement.get('acceptance_criteria', []))
-        
-        prompt = f"""You are a Requirements Analysis Expert. Analyze the following Jira requirement and provide structured feedback.
 
-TICKET: {requirement['ticket_id']}
+        context = f"""TICKET: {requirement['ticket_id']}
 SUMMARY: {requirement['summary']}
 
 DESCRIPTION:
-{requirement['description']}
+{requirement['description'] or 'Not provided'}
 
 ACCEPTANCE CRITERIA:
 {criteria_text if criteria_text else 'Not specified'}
 
 STATUS: {requirement['status']}
 ASSIGNEE: {requirement['assignee']}
+"""
 
-Provide your analysis in the following JSON format:
-{{
-    "clarity_score": <1-10>,
-    "completeness": "<complete|partial|incomplete>",
-    "is_testable": <true|false>,
-    "issues": [
-        {{"issue": "description", "severity": "<critical|high|medium|low>"}}
-    ],
-    "recommendations": ["recommendation1", "recommendation2"],
-    "missing_elements": ["element1", "element2"],
-    "overall_assessment": "brief summary"
-}}
-
-Be specific and provide actionable feedback."""
-        
-        return prompt
+        return self._compose_prompt("Jira Ticket Input", context)
     
     def _build_architecture_prompt(self, design_content: str) -> str:
         """Build prompt for architecture review"""
         
         # Limit content to avoid token limits
         limited_content = design_content[:3000]
-        
-        prompt = f"""You are a Software Architect. Review the following design document and provide detailed architectural analysis.
 
-DESIGN DOCUMENT:
+        context = f"""DESIGN CONTENT:
 {limited_content}
+"""
 
-Provide your analysis in the following JSON format:
-{{
-    "design_quality_score": <1-10>,
-    "clarity_score": <1-10>,
-    "architectural_patterns": ["pattern1", "pattern2"],
-    "design_principles_followed": ["principle1"],
-    "scalability_assessment": "<scalable|limited|concerns>",
-    "maintainability_score": <1-10>,
-    "risks": [
-        {{"risk": "description", "severity": "<critical|high|medium|low>", "mitigation": "suggested mitigation"}}
-    ],
-    "improvements": ["improvement1", "improvement2"],
-    "compliance_concerns": ["concern1"],
-    "recommendations": ["recommendation1", "recommendation2"]
-}}
-
-Provide constructive and specific feedback."""
-        
-        return prompt
+        return self._compose_prompt("Jira Design Input", context)
     
     def _build_security_prompt(self, design_content: str) -> str:
         """Build prompt for security review"""
         
         limited_content = design_content[:3000]
-        
-        prompt = f"""You are a Security Expert. Perform comprehensive security analysis of the following design.
 
-DESIGN DOCUMENT:
+        context = f"""DESIGN CONTENT:
 {limited_content}
+"""
 
-        Provide your security analysis in the following JSON format:
-{{
-    "security_score": <1-10>,
-    "authentication": {{"status": "<secure|at_risk>", "details": "description"}},
-    "authorization": {{"status": "<secure|at_risk>", "details": "description"}},
-    "data_protection": {{"status": "<secure|at_risk>", "details": "description"}},
-    "api_security": {{"status": "<secure|at_risk>", "details": "description"}},
-    "vulnerabilities": [
-        {{"vulnerability": "description", "severity": "<critical|high|medium|low>", "remediation": "how to fix"}}
-    ],
-    "compliance_gaps": ["gap1", "gap2"],
-    "recommendations": ["recommendation1", "recommendation2"]
-}}
-
-Be thorough and specific about security concerns."""
-        
-        return prompt
+        return self._compose_prompt("Jira Design Input", context)
 
     def _build_scalability_prompt(self, design_content: str) -> str:
         """Build prompt for scalability review"""
 
         limited_content = design_content[:3000]
 
-        prompt = f"""You are a Scalability Expert. Analyze the following design for scalability and performance risks.
-
-DESIGN DOCUMENT:
+        context = f"""DESIGN CONTENT:
 {limited_content}
+"""
 
-Provide your scalability analysis in the following JSON format:
-{{
-    "scalability_score": <1-10>,
-    "performance_assessment": {{
-        "api_response_time": {{"requirement": "string", "design_support": "<good|adequate|needs_improvement>"}},
-        "throughput": {{"requirement": "string", "design_support": "<good|adequate|needs_improvement>"}}
-    }},
-    "scalability_findings": [
-        {{"finding_id": "SCALE-001", "aspect": "Database Layer", "severity": "<critical|high|medium|low>", "concern": "description", "recommendation": "how to improve"}}
-    ],
-    "capacity_considerations": ["consideration1", "consideration2"],
-    "bottlenecks": ["bottleneck1", "bottleneck2"],
-    "recommendations": ["recommendation1", "recommendation2"],
-    "summary": {{
-        "overall_scalability_status": "<scalable_design|adequate_with_considerations|scalability_concerns>",
-        "total_findings": 0,
-        "critical": 0,
-        "high": 0,
-        "medium": 0,
-        "low": 0
-    }}
-}}
-
-Focus on growth limits, performance risks, and operational scaling concerns."""
-
-        return prompt
+        return self._compose_prompt("Jira Design Input", context)
 
 
 def main():
