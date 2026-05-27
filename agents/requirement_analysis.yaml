@@ -1,43 +1,45 @@
 ---
 name: Requirement Analysis Agent
-description: Extracts, validates, and analyzes requirements from Jira and design documents
+description: Extracts and analyzes requirements from Jira ticket for design document validation
 version: 1.0
-type: analysis
+type: design_review
 ---
 
 # Requirement Analysis Agent
 
 ## Agent Profile
 
-**Role**: Requirements Analysis Expert
-**Expertise**: Requirement extraction, validation, clarity assessment, gap analysis
-**Integration**: Jira, Design Documents
+**Role**: Requirement Extraction Specialist
+**Expertise**: Extracting, classifying, and analyzing requirements from Jira tickets
+**Input**: Jira ticket ID
 **Output Format**: JSON + Markdown
 
 ## Responsibilities
 
-1. **Requirement Extraction**
-   - Parse Jira ticket descriptions
+1. **Requirement Extraction from Jira**
+   - Parse Jira ticket summary and description
    - Identify acceptance criteria
-   - Extract implicit requirements from design docs
-   - Classify requirements (functional, non-functional, constraints)
+   - Extract functional requirements
+   - Extract non-functional requirements
+   - Classify requirements by type
 
-2. **Validation**
-   - Check requirement clarity and specificity
+2. **Requirement Validation**
+   - Assess clarity and specificity
    - Identify ambiguous statements
-   - Detect conflicting requirements
-   - Validate completeness against scope
+   - Validate testability
+   - Check acceptance criteria completeness
 
-3. **Gap Analysis**
-   - Identify missing requirements
-   - Find undocumented constraints
-   - Detect missing non-functional requirements
-   - Flag incomplete acceptance criteria
+3. **Requirement Classification**
+   - Functional: What the system must do
+   - Non-Functional: Performance, security, scalability
+   - Constraints: External limitations
+   - Assumptions: Underlying assumptions
 
-4. **Traceability**
-   - Map requirements to design elements
-   - Link to implementation components
-   - Track requirement coverage
+4. **Output for Design Review**
+   - Structured requirements list
+   - Priority and severity classification
+   - Acceptance criteria mapping
+   - Key focus areas for design validation
    - Document design decisions
 
 ## Input Specifications

@@ -1,0 +1,151 @@
+{
+  "requirement_ticket_id": "SK101-13",
+  "design_ticket_id": "SK101-10",
+  "timestamp": "2026-05-27T15:54:03.558307",
+  "review_type": "design_document_review",
+  "results": {
+    "requirement_analysis": {
+      "agent": "requirement_analysis",
+      "ticket_id": "SK101-13",
+      "ticket_summary": "Vendor Invoice-Business Requirement",
+      "analysis": {
+        "clarity_score": 5,
+        "completeness": "partial",
+        "is_testable": false,
+        "issues": [
+          {
+            "issue": "Offline mode used; live model analysis was not available in this environment.",
+            "severity": "medium"
+          }
+        ],
+        "recommendations": [
+          "Re-run with a live LLM provider once network access is available.",
+          "Validate acceptance criteria are explicit and testable."
+        ],
+        "missing_elements": [
+          "Live model analysis",
+          "Clear, testable acceptance criteria"
+        ],
+        "overall_assessment": "Offline fallback generated for SK101-13; summary: Vendor Invoice-Business Requirement."
+      },
+      "llm_model": "offline-heuristic",
+      "status": "success"
+    },
+    "design_document_review": {
+      "agent": "design_document_review",
+      "document": "SK101-10",
+      "source": "jira_content",
+      "analysis": {
+        "design_quality_score": 5,
+        "clarity_score": 5,
+        "architectural_patterns": [],
+        "design_principles_followed": [],
+        "scalability_assessment": "concerns",
+        "maintainability_score": 5,
+        "risks": [
+          {
+            "risk": "Offline mode used; live design review unavailable.",
+            "severity": "medium",
+            "mitigation": "Run with a live LLM provider for a full review."
+          }
+        ],
+        "improvements": [
+          "Confirm design content is complete in Jira before review.",
+          "Add explicit implementation boundaries and interfaces."
+        ],
+        "compliance_concerns": [],
+        "recommendations": [
+          "Re-run with live model access for deeper architectural analysis."
+        ]
+      },
+      "llm_model": "offline-heuristic",
+      "status": "success"
+    },
+    "design_security_review": {
+      "agent": "design_security_review",
+      "analysis_type": "security_review",
+      "source": "jira_content",
+      "analysis": {
+        "security_score": 5,
+        "authentication": {
+          "status": "at_risk",
+          "details": "Offline mode used; no live security review."
+        },
+        "authorization": {
+          "status": "at_risk",
+          "details": "Offline mode used; no live security review."
+        },
+        "data_protection": {
+          "status": "at_risk",
+          "details": "Offline mode used; no live security review."
+        },
+        "api_security": {
+          "status": "at_risk",
+          "details": "Offline mode used; no live security review."
+        },
+        "vulnerabilities": [
+          {
+            "vulnerability": "Review was generated offline without live model access.",
+            "severity": "medium",
+            "remediation": "Run the review against a live model and validate security controls."
+          }
+        ],
+        "compliance_gaps": [],
+        "recommendations": [
+          "Re-run the security review with a live provider.",
+          "Ensure authentication, authorization, and data protection are explicitly documented."
+        ]
+      },
+      "llm_model": "offline-heuristic",
+      "status": "success"
+    },
+    "design_scalability_review": {
+      "agent": "design_scalability_review",
+      "analysis_type": "scalability_review",
+      "source": "jira_content",
+      "analysis": {
+        "scalability_score": 5,
+        "performance_assessment": {
+          "api_response_time": {
+            "requirement": "not assessed offline",
+            "design_support": "needs_improvement"
+          },
+          "throughput": {
+            "requirement": "not assessed offline",
+            "design_support": "needs_improvement"
+          }
+        },
+        "scalability_findings": [
+          {
+            "finding_id": "SCALE-001",
+            "aspect": "Review Execution",
+            "severity": "medium",
+            "concern": "Offline mode used; live scalability review unavailable.",
+            "recommendation": "Run with a live provider to assess capacity, bottlenecks, and growth limits."
+          }
+        ],
+        "capacity_considerations": [
+          "Document expected traffic and storage growth in the design ticket.",
+          "Describe caching, batching, and async processing strategy if applicable."
+        ],
+        "bottlenecks": [
+          "No live analysis was performed in this environment."
+        ],
+        "recommendations": [
+          "Re-run the scalability review with a live provider.",
+          "Add explicit load, throughput, and growth assumptions to the design."
+        ],
+        "summary": {
+          "overall_scalability_status": "adequate_with_considerations",
+          "total_findings": 1,
+          "critical": 0,
+          "high": 0,
+          "medium": 1,
+          "low": 0
+        }
+      },
+      "llm_model": "offline-heuristic",
+      "status": "success"
+    }
+  }
+}

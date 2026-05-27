@@ -1,27 +1,158 @@
-# AI-Driven Design Review Agent - README
+# Jira Design Document Review Agent
 
-## Overview
-
-This workspace contains the **AI-Driven Design Review Agent**, a comprehensive GitHub Copilot-based system for automating design reviews of Jira-based software projects. The agent uses multiple specialized AI agents to analyze design artifacts against architectural, security, scalability, and compliance standards.
+Automated design document review using AI agents. Input: Jira ticket ID. Output: Comprehensive design review report.
 
 ## Quick Start
 
-### Prerequisites
-- **VS Code** with GitHub Copilot extension installed
-- **Python 3.10+** installed locally
-- **Jira account** with API token access
-- **OpenAI or Azure OpenAI API key** (optional for Jira-only operations)
+```bash
+python run_all_agents.py PROJ-123
+```
 
-### 5-Minute Setup
+**Results**: `review_results_PROJ-123_timestamp.json`
 
-1. **Clone and setup**:
-   ```bash
-   git clone https://github.com/your-org/design-jira-agent.git
-   cd design-jira-agent
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+---
+
+## 4-Agent Workflow
+
+```
+Input: Jira Ticket ID
+  ↓
+1️⃣  Requirement Analysis
+    → Extract requirements from Jira ticket
+  ↓
+2️⃣  Design Document Review
+    → Validate design against requirements
+  ↓
+3️⃣  Design Security Review
+    → Identify security gaps
+  ↓
+4️⃣  Design Scalability Review
+    → Assess scalability and performance
+  ↓
+Output: JSON Report with findings
+```
+
+---
+
+## Setup
+
+### Requirements
+- Python 3.10+
+- Jira API token
+- OpenAI API key
+
+### Installation
+
+```bash
+# Virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# Dependencies
+pip install -r requirements.txt
+
+# Configure
+cp .env.example .env
+# Edit .env:
+#   JIRA_URL, JIRA_USERNAME, JIRA_API_TOKEN
+#   OPENAI_API_KEY
+```
+
+---
+
+## What Gets Reviewed
+
+| Agent | Checks |
+|-------|--------|
+| **Requirement Analysis** | Requirements extraction, classification, priorities |
+| **Design Review** | Requirements coverage, SOLID principles, design patterns, completeness |
+| **Security Review** | Authentication, authorization, encryption, vulnerabilities, threats |
+| **Scalability Review** | Horizontal/vertical scaling, database strategy, bottlenecks, capacity |
+
+---
+
+## Output Report
+
+```json
+{
+  "ticket_id": "PROJ-123",
+  "results": {
+    "requirement_analysis": { ... },
+    "design_document_review": {
+      "requirements_coverage": 95%,
+      "total_findings": 5,
+      "summary": { "overall_status": "review_required" }
+    },
+    "design_security_review": { ... },
+    "design_scalability_review": { ... }
+  }
+}
+```
+
+---
+
+## Files
+
+```
+agents/
+  ├── requirement_analysis.yaml
+  ├── design_document_review.yaml
+  ├── design_security_review.yaml
+  └── design_scalability_review.yaml
+
+prompts/
+  ├── requirement_analysis.md
+  ├── design_document_review.md
+  ├── design_security_review.md
+  └── design_scalability_review.md
+
+src/
+  ├── run_agent.py
+  ├── jira_connector.py
+  └── llm_factory.py
+
+config/
+  └── api_config.yaml
+```
+
+---
+
+## Example
+
+```bash
+python run_all_agents.py PROJ-456
+```
+
+Output:
+- ✅ Requirements coverage: 95%
+- ⚠️ Design findings: 3 issues
+- ⚠️ Security findings: 2 issues
+- ⚠️ Scalability findings: 1 issue
+- 📋 Recommendations: 6 actions
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Ticket not found (404) | Verify ticket exists, check JIRA_URL |
+| API key missing | Create .env file, add OPENAI_API_KEY |
+| Connection error | Check network, verify API credentials |
+
+---
+
+## Environment Variables
+
+```bash
+JIRA_URL=https://your-instance.atlassian.net
+JIRA_USERNAME=your-email@company.com
+JIRA_API_TOKEN=your-api-token
+OPENAI_API_KEY=sk-your-key
+OPENAI_MODEL=gpt-4
+```
+
+---
 
 2. **Configure environment**:
    ```bash
@@ -235,6 +366,59 @@ REVIEW_SEVERITY_THRESHOLD=medium
 INCLUDE_AUDIT_TRAIL=true
 REPORT_FORMAT=markdown
 ```
+
+### Multi-LLM Support
+
+The system now supports **6 different LLM providers** via a single configuration:
+
+**Supported Providers:**
+- **OpenAI GPT-4** - Production standard, highest quality
+- **Azure OpenAI** - Enterprise, compliance certifications
+- **Anthropic Claude** - Cost-effective (50% cheaper than OpenAI)
+- **Google Gemini** - Free tier available
+- **Ollama** (Local) - Free, runs locally, privacy-first
+- **Mistral** - Budget-friendly, 10x cheaper than OpenAI
+
+**Switch providers instantly:**
+```env
+LLM_PROVIDER=openai  # or: azure, anthropic, google, ollama, mistral
+```
+
+See [docs/MULTI_LLM_GUIDE.md](docs/MULTI_LLM_GUIDE.md) for complete setup instructions.
+
+### Two-Ticket Validation Workflow
+
+**New Feature**: Compare requirements from one Jira ticket against design in another ticket.
+
+**Use Case**: When requirements and design are in separate Jira tickets, validate that the design satisfies all acceptance criteria.
+
+**Example:**
+- PROJ-123: User Authentication (Requirements)
+- PROJ-124: OAuth2 System Design (Design)
+
+**Run Validation:**
+```bash
+python analyze_two_tickets.py
+```
+
+**Prompts:**
+```
+Enter REQUIREMENT ticket ID: PROJ-123
+Enter DESIGN DOCUMENT ticket ID: PROJ-124
+```
+
+**Output:**
+- `validation_PROJ-123_vs_PROJ-124.md` - Human-readable report with gap analysis
+- `validation_PROJ-123_vs_PROJ-124.json` - Machine-readable structured data
+
+**What Gets Checked:**
+✓ Acceptance criteria coverage  
+✓ Design completeness  
+✓ Gap identification  
+✓ Risk assessment  
+✓ Alignment percentage  
+
+See [docs/WORKFLOW.md#two-ticket-validation-workflow](docs/WORKFLOW.md#two-ticket-validation-workflow) for detailed workflow documentation.
 
 ### Review Rules
 Edit `config/review_config.yaml` to customize:

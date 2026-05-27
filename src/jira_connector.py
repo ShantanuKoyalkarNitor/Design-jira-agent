@@ -41,10 +41,11 @@ class JiraConnector:
         self.api_token = api_token or os.getenv("JIRA_API_TOKEN", "")
         self.timeout = timeout
         
-        self.api_endpoint = f"{self.url}/rest/api/3"
+        # Use API v2 for issue access (v3 has limited endpoint support)
+        self.api_endpoint = f"{self.url}/rest/api/2"
         self.auth = HTTPBasicAuth(self.username, self.api_token)
         
-        logger.info(f"Initialized Jira connector for {self.url}")
+        logger.info(f"Initialized Jira connector for {self.url} (using API v2)")
     
     def get_ticket(self, ticket_id: str) -> Dict[str, Any]:
         """
@@ -58,7 +59,8 @@ class JiraConnector:
         """
         logger.debug(f"Fetching ticket {ticket_id}")
         
-        url = f"{self.api_endpoint}/issues/{ticket_id}"
+        # Use singular /issue endpoint (not /issues)
+        url = f"{self.api_endpoint}/issue/{ticket_id}"
         params = {
             "expand": "changelog,changes"
         }
@@ -102,6 +104,78 @@ class JiraConnector:
         logger.info(f"Found {len(artifacts)} artifacts for {ticket_id}")
         
         return artifacts
+
+    def _stringify_field(self, value: Any) -> str:
+        """Convert Jira field values into readable text."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float, bool)):
+            return str(value)
+        if isinstance(value, list):
+            parts = [self._stringify_field(item) for item in value]
+            return "\n".join(part for part in parts if part)
+        if isinstance(value, dict):
+            if "content" in value and "type" in value:
+                return self._stringify_field(value.get("content"))
+            if "text" in value:
+                return self._stringify_field(value.get("text"))
+            if "name" in value:
+                return self._stringify_field(value.get("name"))
+            if "displayName" in value:
+                return self._stringify_field(value.get("displayName"))
+            if "value" in value:
+                return self._stringify_field(value.get("value"))
+
+            lines = []
+            for key, item in value.items():
+                rendered = self._stringify_field(item)
+                if rendered:
+                    lines.append(f"{key}: {rendered}")
+            return "\n".join(lines)
+        return str(value)
+
+    def _safe_nested(self, value: Any, *keys: str, default: str = "") -> str:
+        """Safely read nested dict keys without assuming the shape is present."""
+        current = value
+        for key in keys:
+            if not isinstance(current, dict):
+                return default
+            current = current.get(key)
+            if current is None:
+                return default
+        return self._stringify_field(current) or default
+
+    def format_ticket_for_review(self, ticket_id: str) -> str:
+        """
+        Build a readable text representation of a Jira ticket for LLM review.
+
+        This collects the ticket summary, description, status, assignee, and
+        linked artifacts so review agents can work from Jira content directly.
+        """
+        ticket = self.get_ticket(ticket_id)
+        fields = ticket.get("fields", {})
+        linked_artifacts = self.get_linked_artifacts(ticket_id)
+
+        sections = [
+            f"Ticket: {ticket.get('key', ticket_id)}",
+            f"Summary: {self._stringify_field(fields.get('summary', ''))}",
+            f"Status: {self._safe_nested(fields.get('status'), 'name', default='')}",
+            f"Assignee: {self._safe_nested(fields.get('assignee'), 'displayName', default='Unassigned')}",
+            "",
+            "Description:",
+            self._stringify_field(fields.get('description', '')) or "Not provided",
+        ]
+
+        acceptance = self._stringify_field(fields.get("customfield_10043", ""))
+        if acceptance:
+            sections.extend(["", "Acceptance Criteria:", acceptance])
+
+        if linked_artifacts:
+            sections.extend(["", "Linked Artifacts:", self._stringify_field(linked_artifacts)])
+
+        return "\n".join(sections).strip()
     
     def search(self, jql: str, max_results: int = 50) -> List[Dict[str, Any]]:
         """
