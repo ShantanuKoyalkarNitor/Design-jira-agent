@@ -6,6 +6,7 @@ It checks:
 
 - Requirements extraction
 - Design document quality
+- Implementation feasibility
 - Security gaps
 - Scalability concerns
 
@@ -125,9 +126,15 @@ The agent runs these steps in order:
 1. Read the requirement ticket
 2. Read the design ticket
 3. Review the design against the requirements
-4. Check security
-5. Check scalability
-6. Save the report files
+4. Check if the approach is practical to implement and what changes are needed
+5. If GitHub repo details are set, review the code against the design
+6. Check security
+7. Check scalability
+8. Save the report files
+
+If `GITHUB_TOKEN`, `GITHUB_ORG`, and `GITHUB_REPO` are set, the agent automatically adds the code perspective review. If they are not set, it still runs the feasibility review and the same Jira-only flow as before.
+
+You can also set `GITHUB_BRANCH` if you want the code review to look at a branch other than the repo default.
 
 ## Output Files
 
@@ -143,6 +150,7 @@ Each run creates three files in the project folder:
 | --- | --- |
 | `requirement_analysis` | Pulls out the important requirements from the Jira ticket |
 | `design_document_review` | Checks whether the design covers the requirements well |
+| `design_feasibility_review` | Checks whether the approach is practical to implement and what changes are needed |
 | `design_security_review` | Looks for security problems and missing controls |
 | `design_scalability_review` | Looks for performance and scaling risks |
 
@@ -175,6 +183,7 @@ Each run creates three files in the project folder:
 - `run_all_agents.py` - main command-line entry point
 - `src/run_agent.py` - runs each agent and parses results
 - `src/jira_connector.py` - reads Jira tickets
+- `src/github_connector.py` - reads GitHub repository files when repo details are set
 - `src/llm_factory.py` - creates the selected LLM provider
 - `agents/` - YAML config for each agent
 - `prompts/` - prompt text used by each agent

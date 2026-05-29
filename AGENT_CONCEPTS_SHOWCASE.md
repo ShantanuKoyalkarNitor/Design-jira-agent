@@ -10,6 +10,8 @@ It produces:
 
 - Requirement analysis
 - Design review
+- Feasibility review for implementation approach
+- Optional code review when GitHub repo details are provided
 - Security review
 - Scalability review
 - JSON, Markdown, and text reports
@@ -18,11 +20,13 @@ It produces:
 
 1. Read the requirement ticket
 2. Read the design ticket
-3. Send the ticket content to the right agent
-4. Parse the model output
-5. Save the final reports
+3. Check whether the approach is practical to implement
+4. If repo details exist, pull representative code from GitHub
+5. Send the ticket content to the right agent
+6. Parse the model output
+7. Save the final reports
 
-## The Four Agents
+## The Agents
 
 ### `requirement_analysis`
 
@@ -31,6 +35,14 @@ This agent pulls out the main requirements from the Jira ticket. It helps the re
 ### `design_document_review`
 
 This agent checks whether the design matches the requirements and whether the design looks complete and sensible.
+
+### `design_feasibility_review`
+
+This agent checks whether the design approach can actually be implemented, what changes are needed, and what the build order should be.
+
+### `design_code_review`
+
+This agent runs only when GitHub repo details are configured. It checks whether the codebase already matches the design and points out missing or conflicting implementation pieces.
 
 ### `design_security_review`
 
@@ -44,7 +56,7 @@ This agent looks for bottlenecks, scaling risks, and performance problems.
 
 ### `run_all_agents.py`
 
-This is the main command you run from the terminal. It coordinates all four agents and writes the output files.
+This is the main command you run from the terminal. It coordinates all agents and writes the output files.
 
 ### `src/run_agent.py`
 
@@ -90,16 +102,19 @@ Each run saves three files:
 - `run_all_agents.py`
 - `src/run_agent.py`
 - `src/jira_connector.py`
+- `src/github_connector.py`
 - `src/llm_factory.py`
 - `agents/requirement_analysis.yaml`
 - `agents/design_document_review.yaml`
+- `agents/design_feasibility_review.yaml`
 - `agents/design_security_review.yaml`
 - `agents/design_scalability_review.yaml`
 - `prompts/requirement_analysis.md`
 - `prompts/design_document_review.md`
+- `prompts/design_feasibility_review.md`
 - `prompts/design_security_review.md`
 - `prompts/design_scalability_review.md`
 
 ## Short Summary
 
-This project is a Jira-based review system with separate agents for requirements, design quality, security, and scalability. It is built to keep working even when the live model is unreliable.
+This project is a Jira-based review system with separate agents for requirements, design quality, feasibility, optional code review, security, and scalability. It is built to keep working even when the live model is unreliable.

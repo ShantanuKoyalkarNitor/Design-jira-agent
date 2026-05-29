@@ -6,6 +6,8 @@ Agent Runner - Execute design review agents with different LLMs
 import os
 import sys
 import json
+import re
+import logging
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -13,8 +15,12 @@ from typing import Dict, Any, Optional
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from llm_factory import LLMFactory, get_default_llm
+from llm_factory import LLMFactory, OfflineLLM, get_default_llm
 from jira_connector import JiraConnector
+from github_connector import GitHubConnector
+
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRunner:
@@ -34,14 +40,37 @@ class AgentRunner:
         
         # Create LLM instance - use provided provider or from config or default
         provider = llm_provider or self.agent_config.get('llm', {}).get('provider') or os.getenv("LLM_PROVIDER", "offline")
-        self.llm = LLMFactory.create(provider)
+        # Use fallback mechanism - tries primary provider, then google, then offline
+        self.llm = LLMFactory.create_with_fallback(provider)
         
         # Create Jira connector
         self.jira = JiraConnector()
+        self.github = GitHubConnector()
+        self._repository_context_cache: Optional[Dict[str, Any]] = None
         
         print(f"✓ Agent '{agent_name}' initialized")
         print(f"✓ Using LLM: {self.llm.get_model_name()}")
         print(f"✓ Agent Config: {self.agent_config.get('description', '')}")
+
+    def has_repository_context(self) -> bool:
+        """Return True when GitHub repository details are configured."""
+        return self.github.is_configured()
+
+    def get_repository_context(self) -> Optional[Dict[str, Any]]:
+        """Fetch and cache representative repository code for review."""
+        if self._repository_context_cache is not None:
+            return self._repository_context_cache
+
+        if not self.github.is_configured():
+            return None
+
+        try:
+            self._repository_context_cache = self.github.build_repository_context()
+        except Exception as exc:
+            logger.warning("Unable to load GitHub repository context: %s", exc)
+            self._repository_context_cache = None
+
+        return self._repository_context_cache
 
     def _load_design_source(self, design_source: str) -> tuple[str, str]:
         """
@@ -82,6 +111,8 @@ class AgentRunner:
         prompt_map = {
             'requirement_analysis': 'requirement_analysis.md',
             'design_document_review': 'design_document_review.md',
+            'design_feasibility_review': 'design_feasibility_review.md',
+            'design_code_review': 'design_code_review.md',
             'design_security_review': 'design_security_review.md',
             'design_scalability_review': 'design_scalability_review.md',
         }
@@ -106,9 +137,139 @@ class AgentRunner:
             f"## {context_title}",
             context_body.strip(),
             "",
-            "Important: Return ONLY valid JSON. Do not add markdown fences or commentary.",
+            "Important: Return valid JSON only.",
+            "Do not add markdown fences, code blocks, commentary, or surrounding text.",
+            "Use nested objects and arrays when needed.",
         ])
         return "\n".join(sections).strip()
+
+    def _parse_llm_json(self, analysis_text: str) -> Dict[str, Any]:
+        """
+        Parse JSON returned by the LLM.
+
+        The model sometimes wraps valid JSON in markdown fences or adds
+        surrounding commentary, so we try a few safe extraction strategies
+        before falling back to raw text.
+        """
+        text = analysis_text.strip()
+
+        # Try the response as-is first.
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # If the response is fenced markdown, try the fenced payload.
+        fenced_match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+        if fenced_match:
+            fenced_text = fenced_match.group(1).strip()
+            try:
+                return json.loads(fenced_text)
+            except json.JSONDecodeError:
+                text = fenced_text
+
+        table_data = self._parse_markdown_table(text)
+        if table_data:
+            return table_data
+
+        # As a last structured attempt, extract the outermost JSON object.
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = text[start : end + 1]
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                pass
+
+        return {"raw_analysis": analysis_text}
+
+    def _parse_markdown_table(self, text: str) -> Dict[str, Any]:
+        """
+        Parse a markdown table into a dictionary.
+
+        Expected shape:
+            | field | value |
+            | --- | --- |
+            | key | plain text or JSON |
+        """
+        lines = [line.strip() for line in text.splitlines() if line.strip().startswith("|")]
+        if len(lines) < 2:
+            return {}
+
+        def split_row(row: str) -> list[str]:
+            parts = [cell.strip() for cell in row.strip("|").split("|")]
+            return parts
+
+        header = [cell.lower() for cell in split_row(lines[0])]
+        if len(header) < 2 or "field" not in header[0] or "value" not in header[1]:
+            return {}
+
+        rows = lines[2:] if len(lines) > 2 and set(split_row(lines[1])) <= {"---", ":---", "---:", ":---:"} else lines[1:]
+        parsed: Dict[str, Any] = {}
+
+        for row in rows:
+            cells = split_row(row)
+            if len(cells) < 2:
+                continue
+
+            key = cells[0]
+            value = "|".join(cells[1:]).strip()
+            if not key:
+                continue
+
+            parsed[key] = self._coerce_table_value(value)
+
+        return parsed
+
+    def _coerce_table_value(self, value: str) -> Any:
+        """Try to decode a table cell as JSON, otherwise keep it as text."""
+        value = value.strip()
+        if not value:
+            return ""
+
+        if value.startswith("{") or value.startswith("[") or value in {"true", "false", "null"}:
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                pass
+
+        try:
+            if "." in value:
+                return float(value)
+            return int(value)
+        except ValueError:
+            return value
+
+    def _generate_structured_analysis(self, prompt: str, *, max_tokens: int = 2000) -> tuple[Dict[str, Any], str, bool, str, Dict[str, Any]]:
+        """
+        Generate analysis and guarantee structured JSON output.
+
+        If the primary LLM returns incomplete JSON, fall back to the local
+        deterministic reviewer instead of saving raw truncated text.
+
+        Returns:
+            (analysis, model_name, used_fallback, raw_live_response, parsed_response)
+        """
+        primary_model = self.llm.get_model_name()
+        analysis_text = self.llm.generate(prompt, temperature=0.3, max_tokens=max_tokens)
+        parsed_live_response = self._parse_llm_json(analysis_text)
+
+        if isinstance(parsed_live_response, dict) and "raw_analysis" not in parsed_live_response:
+            return parsed_live_response, primary_model, False, analysis_text, parsed_live_response
+
+        logger.warning(
+            f"Primary LLM {primary_model} returned incomplete JSON for {self.agent_name}; "
+            "falling back to offline reviewer."
+        )
+        fallback_llm = OfflineLLM()
+        fallback_text = fallback_llm.generate(prompt, temperature=0.0, max_tokens=max_tokens)
+        fallback_analysis = self._parse_llm_json(fallback_text)
+
+        if isinstance(fallback_analysis, dict) and "raw_analysis" not in fallback_analysis:
+            return fallback_analysis, fallback_llm.get_model_name(), True, analysis_text, fallback_analysis
+
+        return parsed_live_response, primary_model, False, analysis_text, parsed_live_response
     
     def get_requirements(self, ticket_id: str) -> Dict[str, Any]:
         """
@@ -170,20 +331,17 @@ class AgentRunner:
         print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
         
         # Call LLM with lower temperature for more deterministic output
-        analysis_text = self.llm.generate(prompt, temperature=0.3, max_tokens=2000)
-        
-        # Try to parse as JSON, fallback to raw text
-        try:
-            analysis = json.loads(analysis_text)
-        except json.JSONDecodeError:
-            analysis = {'raw_analysis': analysis_text}
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
         
         result = {
             'agent': self.agent_name,
             'ticket_id': ticket_id,
             'ticket_summary': requirement['summary'],
             'analysis': analysis,
-            'llm_model': self.llm.get_model_name(),
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
             'status': 'success'
         }
         
@@ -209,19 +367,17 @@ class AgentRunner:
         
         print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
         
-        analysis_text = self.llm.generate(prompt, temperature=0.3, max_tokens=2000)
-        
-        try:
-            analysis = json.loads(analysis_text)
-        except json.JSONDecodeError:
-            analysis = {'raw_analysis': analysis_text}
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
         
         return {
             'agent': self.agent_name,
             'document': display_name,
             'source': resolved_source,
             'analysis': analysis,
-            'llm_model': self.llm.get_model_name(),
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
             'status': 'success'
         }
 
@@ -244,19 +400,17 @@ class AgentRunner:
         
         print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
         
-        analysis_text = self.llm.generate(prompt, temperature=0.3, max_tokens=2000)
-        
-        try:
-            analysis = json.loads(analysis_text)
-        except json.JSONDecodeError:
-            analysis = {'raw_analysis': analysis_text}
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
         
         return {
             'agent': self.agent_name,
             'analysis_type': 'security_review',
             'source': resolved_source,
             'analysis': analysis,
-            'llm_model': self.llm.get_model_name(),
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
             'status': 'success'
         }
 
@@ -280,19 +434,17 @@ class AgentRunner:
 
         print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
 
-        analysis_text = self.llm.generate(prompt, temperature=0.3, max_tokens=2000)
-
-        try:
-            analysis = json.loads(analysis_text)
-        except json.JSONDecodeError:
-            analysis = {'raw_analysis': analysis_text}
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
 
         return {
             'agent': self.agent_name,
             'analysis_type': 'scalability_review',
             'source': resolved_source,
             'analysis': analysis,
-            'llm_model': self.llm.get_model_name(),
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
             'status': 'success'
         }
     
@@ -349,6 +501,157 @@ ASSIGNEE: {requirement['assignee']}
 """
 
         return self._compose_prompt("Jira Design Input", context)
+
+    def _build_feasibility_prompt(self, design_content: str, repository_context: Optional[Dict[str, Any]] = None) -> str:
+        """Build prompt for implementation feasibility review."""
+        limited_content = design_content[:3000]
+
+        repo_sections = []
+        if repository_context:
+            repo_summary = {
+                key: value
+                for key, value in repository_context.items()
+                if key != "context_text"
+            }
+            repo_context_text = repository_context.get("context_text", "")[:12000]
+            repo_summary_json = json.dumps(repo_summary, indent=2, ensure_ascii=False)
+            repo_sections = [
+                "",
+                f"REPOSITORY:",
+                repository_context.get("repository", "unknown"),
+                "",
+                f"BRANCH:",
+                repository_context.get("branch", "unknown"),
+                "",
+                "REPOSITORY SUMMARY:",
+                repo_summary_json,
+                "",
+                "REPOSITORY CODE:",
+                repo_context_text,
+            ]
+
+        context = "\n".join([
+            "DESIGN CONTENT:",
+            limited_content,
+            *repo_sections,
+        ])
+
+        prompt = self._compose_prompt("Jira Design Feasibility Input", context)
+        prompt += (
+            "\n\nDecide whether the approach is implementable, what changes are required, "
+            "what is blocking, and what should happen first."
+        )
+        return prompt
+
+    def _build_code_review_prompt(self, design_content: str, repository_context: Dict[str, Any]) -> str:
+        """Build prompt for code-aware design review."""
+        limited_design_content = design_content[:3000]
+        repo_summary = {
+            key: value
+            for key, value in repository_context.items()
+            if key != "context_text"
+        }
+        repo_context_text = repository_context.get("context_text", "")[:12000]
+        repo_summary_json = json.dumps(repo_summary, indent=2, ensure_ascii=False)
+        repository_name = repository_context.get("repository", "unknown")
+        branch_name = repository_context.get("branch", "unknown")
+
+        context = f"""DESIGN CONTENT:
+{limited_design_content}
+
+REPOSITORY:
+{repository_name}
+
+BRANCH:
+{branch_name}
+
+REPOSITORY SUMMARY:
+{repo_summary_json}
+
+REPOSITORY CODE:
+{repo_context_text}
+"""
+
+        prompt = self._compose_prompt("Jira Design and Repository Input", context)
+        prompt += (
+            "\n\nFocus on whether the current codebase matches the design, what is already implemented, "
+            "what is missing, and where the code contradicts the design."
+        )
+        return prompt
+
+    def analyze_feasibility(
+        self,
+        design_source: str,
+        source_name: Optional[str] = None,
+        repository_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Analyze whether the design approach is implementable."""
+        display_name = source_name or design_source
+        print(f"\n🧪 Analyzing implementation feasibility: {display_name}")
+
+        design_content, resolved_source = self._load_design_source(design_source)
+        prompt = self._build_feasibility_prompt(design_content, repository_context)
+
+        print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
+
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
+
+        result = {
+            'agent': self.agent_name,
+            'analysis_type': 'feasibility_review',
+            'source': resolved_source,
+            'analysis': analysis,
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
+            'status': 'success'
+        }
+
+        if repository_context:
+            result['repository_context'] = {
+                'repository': repository_context.get('repository', ''),
+                'branch': repository_context.get('branch', ''),
+                'file_count': repository_context.get('file_count', 0),
+                'files_reviewed': repository_context.get('files_reviewed', []),
+            }
+
+        return result
+
+    def analyze_code_review(
+        self,
+        design_source: str,
+        repository_context: Dict[str, Any],
+        source_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Analyze the design from a codebase perspective."""
+        display_name = source_name or design_source
+        print(f"\n🧩 Analyzing code perspective: {display_name}")
+
+        design_content, resolved_source = self._load_design_source(design_source)
+        prompt = self._build_code_review_prompt(design_content, repository_context)
+
+        print(f"📤 Sending to LLM: {self.llm.get_model_name()}")
+
+        analysis, llm_model, used_fallback, raw_live_response, parsed_response = self._generate_structured_analysis(prompt)
+
+        return {
+            'agent': self.agent_name,
+            'analysis_type': 'code_review',
+            'source': resolved_source,
+            'repository_context': {
+                'repository': repository_context.get('repository', ''),
+                'branch': repository_context.get('branch', ''),
+                'file_count': repository_context.get('file_count', 0),
+                'files_reviewed': repository_context.get('files_reviewed', []),
+            },
+            'analysis': analysis,
+            'raw_live_response': raw_live_response,
+            'parsed_response': parsed_response,
+            'llm_model': llm_model,
+            'fallback_used': used_fallback,
+            'status': 'success'
+        }
 
 
 def main():
